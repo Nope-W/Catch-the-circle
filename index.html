@@ -59,7 +59,7 @@
 </head>
 <body>
 
-    <h1>Camouflage Detection Task</h1>
+    <h1>Click on the moving circle</h1>
     
     <div class="stats">
         <div>Trial: <strong id="trial-counter-display">0 / 10</strong></div>
@@ -342,7 +342,7 @@
             .then(response => {
                 uploadStatus.innerText = "Upload Complete! Refresh page for next participant.";
                 uploadStatus.style.color = "#2ecc71"; 
-                alert("Upload Complete! Data is safely in your Google Sheet.");
+                alert("Upload Complete!");
             })
             .catch(error => {
                 console.error('Error!', error);
