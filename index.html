@@ -21,7 +21,7 @@
             overflow: hidden; 
             cursor: crosshair;
             
-            /* CRITICAL FIX FOR TABLETS/PHONES: Prevents the screen from swiping or zooming when tapping */
+            /* CRITICAL FIX FOR TABLETS/PHONES */
             touch-action: none; 
         }
         
@@ -47,6 +47,7 @@
         
         button { padding: 10px 20px; font-size: 1.1rem; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; margin: 10px; }
         button:hover { background-color: #45a049; }
+        button:disabled { background-color: #7f8c8d; cursor: not-allowed; }
         .danger-btn { background-color: #3498db; }
         .danger-btn:hover { background-color: #2980b9; }
         
@@ -156,7 +157,6 @@
         let sessionData = []; 
         let trialPlaylist = []; 
 
-        // Utility Function to shuffle an array
         function shuffleArray(array) {
             const arr = [...array];
             for (let i = arr.length - 1; i > 0; i--) {
@@ -166,7 +166,7 @@
             return arr;
         }
 
-        // 1. Initialize Session
+        // 1. Initialize Session & Trigger Preload
         startSessionBtn.addEventListener('click', () => {
             const enteredId = participantInput.value.trim();
             if (enteredId !== "") participantId = enteredId;
@@ -174,16 +174,49 @@
             speedMultiplier = parseFloat(difficultySelect.value);
             difficultyMode = difficultySelect.options[difficultySelect.selectedIndex].text;
             
-            // Build the 10-trial playlist: 5 random D's + 5 random T's
+            // Build the 10-trial playlist
             const selectedD = shuffleArray(dBackgrounds).slice(0, 5);
             const selectedT = shuffleArray(tBackgrounds).slice(0, 5);
-            
-            // Combine and shuffle them so the order of D and T is completely random
             trialPlaylist = shuffleArray([...selectedD, ...selectedT]);
 
-            introScreen.style.display = 'none';
-            startTrial();
+            // Disable button and start preloading
+            startSessionBtn.disabled = true;
+            preloadImagesAndStart();
         });
+
+        // --- NEW PRELOADING LOGIC ---
+        function preloadImagesAndStart() {
+            let loadedCount = 0;
+            const totalImages = trialPlaylist.length;
+
+            startSessionBtn.innerText = `Loading Images (${loadedCount}/${totalImages})...`;
+
+            trialPlaylist.forEach(filename => {
+                const img = new Image();
+                img.src = filename;
+                
+                img.onload = () => {
+                    loadedCount++;
+                    startSessionBtn.innerText = `Loading Images (${loadedCount}/${totalImages})...`;
+                    
+                    // Once all 10 are loaded, instantly start the game
+                    if (loadedCount === totalImages) {
+                        introScreen.style.display = 'none';
+                        startTrial();
+                    }
+                };
+
+                // If an image is missing or errors out, skip it so the game doesn't freeze forever
+                img.onerror = () => {
+                    console.error("Failed to load image: " + filename);
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        introScreen.style.display = 'none';
+                        startTrial();
+                    }
+                };
+            });
+        }
 
         // 2. Setup Individual Trial
         function startTrial() {
@@ -194,7 +227,7 @@
             misses = 0;
             missDisplay.innerText = misses;
 
-            // Pull the next background from our generated playlist
+            // Pull the next background from our preloaded playlist
             currentBg = trialPlaylist[trialCounter - 1];
             board.style.backgroundImage = `url('${currentBg}')`;
             target.style.backgroundImage = `url('${currentBg}')`;
@@ -203,7 +236,6 @@
             const cropY = Math.floor(Math.random() * (600 - 40));
             target.style.backgroundPosition = `-${cropX}px -${cropY}px`;
 
-            // Position & Exact Speed
             const maxX = board.clientWidth - target.clientWidth;
             const maxY = board.clientHeight - target.clientHeight;
             posX = Math.random() * maxX; 
@@ -238,7 +270,6 @@
             const maxX = board.clientWidth - target.clientWidth;
             const maxY = board.clientHeight - target.clientHeight;
 
-            // Bouncing
             if (posX <= 0) { posX = 0; velocityX *= -1; }
             if (posX >= maxX) { posX = maxX; velocityX *= -1; }
             if (posY <= 0) { posY = 0; velocityY *= -1; }
@@ -250,12 +281,12 @@
             animationFrameId = requestAnimationFrame(animateTarget);
         }
 
-        // 4. Target Caught Logic (Using pointerdown for instant touch response)
+        // 4. Target Caught Logic
         target.addEventListener('pointerdown', (event) => {
             if (!gameActive) return;
             
             event.stopPropagation(); 
-            event.preventDefault(); // Prevents zooming/scrolling on mobile
+            event.preventDefault(); 
             
             gameActive = false;
             cancelAnimationFrame(animationFrameId);
@@ -263,7 +294,6 @@
 
             const reactionTime = ((Date.now() - startTime) / 1000).toFixed(3); 
             
-            // Save data to memory array
             sessionData.push([
                 participantId,
                 difficultyMode,
@@ -283,7 +313,7 @@
             }
         });
 
-        // Background Clicked (Miss) - Using pointerdown
+        // Background Clicked (Miss)
         board.addEventListener('pointerdown', (event) => {
             if (!gameActive) return;
             event.preventDefault(); 
@@ -299,7 +329,7 @@
             finishSessionBtn.disabled = true;
             uploadStatus.style.display = 'block';
             uploadStatus.innerText = "Uploading data to Google Sheets...";
-            uploadStatus.style.color = "#f1c40f"; // Yellow
+            uploadStatus.style.color = "#f1c40f"; 
             
             // --- YOUR WEB APP URL GOES HERE ---
             const googleScriptURL = "https://script.google.com/macros/s/AKfycbz_kC55rmhm8uCjgJDCyYSSUJcC2iRmuuUQzkdK14PAMLLgeGAG4XHsi2jnehzxiSr5/exec"; 
@@ -311,15 +341,13 @@
             })
             .then(response => {
                 uploadStatus.innerText = "Upload Complete! Refresh page for next participant.";
-                uploadStatus.style.color = "#2ecc71"; // Green
+                uploadStatus.style.color = "#2ecc71"; 
                 alert("Upload Complete! Data is safely in your Google Sheet.");
-                // Optional: Automatically reload page
-                // window.location.reload(); 
             })
             .catch(error => {
                 console.error('Error!', error);
                 uploadStatus.innerText = "Error uploading data. Check your internet.";
-                uploadStatus.style.color = "#e74c3c"; // Red
+                uploadStatus.style.color = "#e74c3c"; 
                 finishSessionBtn.disabled = false;
             });
         });
