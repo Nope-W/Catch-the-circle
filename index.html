@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camouflage Detection Task</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #222; color: #fff; margin: 0; padding: 20px; }
+        
+        #game-board { 
+            width: 600px; 
+            height: 600px; 
+            margin: 20px auto; 
+            position: relative; 
+            background-color: #444; 
+            background-size: 600px 600px; 
+            background-position: top left; 
+            background-repeat: no-repeat;
+            border: 3px solid #fff; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            cursor: crosshair;
+            
+            /* CRITICAL FIX FOR TABLETS/PHONES: Prevents the screen from swiping or zooming when tapping */
+            touch-action: none; 
+        }
+        
+        #target { 
+            width: 40px; 
+            height: 40px; 
+            position: absolute; 
+            display: none; 
+            border-radius: 50%; 
+            background-size: 600px 600px;
+            background-repeat: no-repeat;
+            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+        }
+        
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+        .overlay-screen h2 { margin-top: 0; color: #4CAF50; }
+        
+        #trial-screen, #end-screen { display: none; }
+        
+        .stats { display: flex; justify-content: center; gap: 30px; font-size: 1.2rem; margin-bottom: 10px; }
+        
+        input[type="text"], select { padding: 10px; font-size: 1.1rem; margin-bottom: 20px; border-radius: 5px; border: none; text-align: center; }
+        
+        button { padding: 10px 20px; font-size: 1.1rem; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; margin: 10px; }
+        button:hover { background-color: #45a049; }
+        .danger-btn { background-color: #3498db; }
+        .danger-btn:hover { background-color: #2980b9; }
+        
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        
+        #upload-status { margin-top: 15px; font-weight: bold; color: #f1c40f; display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>Camouflage Detection Task</h1>
+    
+    <div class="stats">
+        <div>Trial: <strong id="trial-counter-display">0 / 10</strong></div>
+        <div>Current Time: <strong id="live-time-display">0.00</strong> s</div>
+        <div>Current Misses: <strong id="miss-display">0</strong></div>
+    </div>
+
+    <div id="game-board">
+        <div id="target"></div>
+        
+        <div id="intro-screen" class="overlay-screen">
+            <h2>Session Setup</h2>
+            
+            <div class="control-group">
+                <label for="participant-id">Participant ID</label>
+                <input type="text" id="participant-id" placeholder="e.g., P-001" autocomplete="off">
+            </div>
+
+            <div class="control-group">
+                <label for="difficulty-select">Target Speed (Difficulty)</label>
+                <select id="difficulty-select">
+                    <option value="3">Easy (Slow)</option>
+                    <option value="6" selected>Medium (Standard)</option>
+                    <option value="10">Hard (Fast)</option>
+                </select>
+            </div>
+
+            <button id="start-session-btn">Start Experiment</button>
+        </div>
+
+        <div id="trial-screen" class="overlay-screen">
+            <h2>Target Caught!</h2>
+            <p>Reaction Time: <strong id="trial-time">0.00</strong> seconds</p>
+            <button id="next-trial-btn">Start Next Trial</button>
+        </div>
+
+        <div id="end-screen" class="overlay-screen">
+            <h2>Experiment Complete</h2>
+            <p>10 trials finished successfully.</p>
+            <button id="finish-session-btn" class="danger-btn">Finish Session & Upload Data</button>
+            <div id="upload-status">Uploading data to Google Sheets...</div>
+        </div>
+    </div>
+
+    <script>
+        const MAX_TRIALS = 10;
+        
+        const board = document.getElementById('game-board');
+        const target = document.getElementById('target');
+        
+        const introScreen = document.getElementById('intro-screen');
+        const trialScreen = document.getElementById('trial-screen');
+        const endScreen = document.getElementById('end-screen');
+        
+        const startSessionBtn = document.getElementById('start-session-btn');
+        const nextTrialBtn = document.getElementById('next-trial-btn');
+        const finishSessionBtn = document.getElementById('finish-session-btn');
+        const uploadStatus = document.getElementById('upload-status');
+        
+        const participantInput = document.getElementById('participant-id');
+        const difficultySelect = document.getElementById('difficulty-select');
+        
+        const liveTimeDisplay = document.getElementById('live-time-display');
+        const missDisplay = document.getElementById('miss-display');
+        const trialTimeDisplay = document.getElementById('trial-time');
+        const trialCounterDisplay = document.getElementById('trial-counter-display');
+
+        // Split the backgrounds into two separate categories
+        const dBackgrounds = [
+            'd (1).png', 'd (2).png', 'd (3).png', 'd (4).png', 'd (5).png',
+            'd (6).png', 'd (7).png', 'd (8).png', 'd (9).png', 'd (10).png',
+            'd (11).png', 'd (12).png', 'd (13).png'
+        ];
+        
+        const tBackgrounds = [
+            't (1).png', 't (2).png', 't (3).png', 't (4).png', 't (5).png',
+            't (6).png', 't (7).png', 't (8).png', 't (9).png', 't (10).png',
+            't (11).png', 't (12).png', 't (13).png'
+        ];
+
+        let startTime = 0; 
+        let misses = 0; 
+        let gameActive = false;
+        let liveTimerInterval; 
+        let animationFrameId;
+        
+        let posX = 0; let posY = 0; 
+        let velocityX = 0; let velocityY = 0;
+        
+        let participantId = "Unknown";
+        let difficultyMode = "Medium";
+        let speedMultiplier = 6;
+        let trialCounter = 0;
+        let currentBg = "";
+        let sessionData = []; 
+        let trialPlaylist = []; 
+
+        // Utility Function to shuffle an array
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // 1. Initialize Session
+        startSessionBtn.addEventListener('click', () => {
+            const enteredId = participantInput.value.trim();
+            if (enteredId !== "") participantId = enteredId;
+            
+            speedMultiplier = parseFloat(difficultySelect.value);
+            difficultyMode = difficultySelect.options[difficultySelect.selectedIndex].text;
+            
+            // Build the 10-trial playlist: 5 random D's + 5 random T's
+            const selectedD = shuffleArray(dBackgrounds).slice(0, 5);
+            const selectedT = shuffleArray(tBackgrounds).slice(0, 5);
+            
+            // Combine and shuffle them so the order of D and T is completely random
+            trialPlaylist = shuffleArray([...selectedD, ...selectedT]);
+
+            introScreen.style.display = 'none';
+            startTrial();
+        });
+
+        // 2. Setup Individual Trial
+        function startTrial() {
+            trialCounter++;
+            trialCounterDisplay.innerText = `${trialCounter} / ${MAX_TRIALS}`;
+            
+            trialScreen.style.display = 'none';
+            misses = 0;
+            missDisplay.innerText = misses;
+
+            // Pull the next background from our generated playlist
+            currentBg = trialPlaylist[trialCounter - 1];
+            board.style.backgroundImage = `url('${currentBg}')`;
+            target.style.backgroundImage = `url('${currentBg}')`;
+            
+            const cropX = Math.floor(Math.random() * (600 - 40));
+            const cropY = Math.floor(Math.random() * (600 - 40));
+            target.style.backgroundPosition = `-${cropX}px -${cropY}px`;
+
+            // Position & Exact Speed
+            const maxX = board.clientWidth - target.clientWidth;
+            const maxY = board.clientHeight - target.clientHeight;
+            posX = Math.random() * maxX; 
+            posY = Math.random() * maxY;
+            
+            setInitialVelocity();
+
+            target.style.display = 'block';
+            gameActive = true;
+            startTime = Date.now();
+            
+            clearInterval(liveTimerInterval);
+            liveTimerInterval = setInterval(() => {
+                liveTimeDisplay.innerText = ((Date.now() - startTime) / 1000).toFixed(2);
+            }, 50);
+
+            animateTarget();
+        }
+
+        function setInitialVelocity() {
+            const angle = Math.random() * 2 * Math.PI;
+            velocityX = Math.cos(angle) * speedMultiplier;
+            velocityY = Math.sin(angle) * speedMultiplier;
+        }
+
+        // 3. Linear Physics Loop
+        function animateTarget() {
+            if (!gameActive) return;
+
+            posX += velocityX; 
+            posY += velocityY;
+            const maxX = board.clientWidth - target.clientWidth;
+            const maxY = board.clientHeight - target.clientHeight;
+
+            // Bouncing
+            if (posX <= 0) { posX = 0; velocityX *= -1; }
+            if (posX >= maxX) { posX = maxX; velocityX *= -1; }
+            if (posY <= 0) { posY = 0; velocityY *= -1; }
+            if (posY >= maxY) { posY = maxY; velocityY *= -1; }
+
+            target.style.left = posX + 'px'; 
+            target.style.top = posY + 'px';
+            
+            animationFrameId = requestAnimationFrame(animateTarget);
+        }
+
+        // 4. Target Caught Logic (Using pointerdown for instant touch response)
+        target.addEventListener('pointerdown', (event) => {
+            if (!gameActive) return;
+            
+            event.stopPropagation(); 
+            event.preventDefault(); // Prevents zooming/scrolling on mobile
+            
+            gameActive = false;
+            cancelAnimationFrame(animationFrameId);
+            clearInterval(liveTimerInterval);
+
+            const reactionTime = ((Date.now() - startTime) / 1000).toFixed(3); 
+            
+            // Save data to memory array
+            sessionData.push([
+                participantId,
+                difficultyMode,
+                trialCounter,
+                currentBg,
+                reactionTime,
+                misses
+            ]);
+            
+            target.style.display = 'none'; 
+            
+            if (trialCounter >= MAX_TRIALS) {
+                endScreen.style.display = 'flex';
+            } else {
+                trialTimeDisplay.innerText = reactionTime;
+                trialScreen.style.display = 'flex'; 
+            }
+        });
+
+        // Background Clicked (Miss) - Using pointerdown
+        board.addEventListener('pointerdown', (event) => {
+            if (!gameActive) return;
+            event.preventDefault(); 
+            
+            misses++;
+            missDisplay.innerText = misses;
+        });
+
+        nextTrialBtn.addEventListener('click', startTrial);
+
+        // 5. GOOGLE SHEETS UPLOAD LOGIC
+        finishSessionBtn.addEventListener('click', () => {
+            finishSessionBtn.disabled = true;
+            uploadStatus.style.display = 'block';
+            uploadStatus.innerText = "Uploading data to Google Sheets...";
+            uploadStatus.style.color = "#f1c40f"; // Yellow
+            
+            // --- YOUR WEB APP URL GOES HERE ---
+            const googleScriptURL = "https://script.google.com/macros/s/AKfycbz_kC55rmhm8uCjgJDCyYSSUJcC2iRmuuUQzkdK14PAMLLgeGAG4XHsi2jnehzxiSr5/exec"; 
+
+            fetch(googleScriptURL, {
+                method: 'POST',
+                body: JSON.stringify(sessionData),
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            })
+            .then(response => {
+                uploadStatus.innerText = "Upload Complete! Refresh page for next participant.";
+                uploadStatus.style.color = "#2ecc71"; // Green
+                alert("Upload Complete! Data is safely in your Google Sheet.");
+                // Optional: Automatically reload page
+                // window.location.reload(); 
+            })
+            .catch(error => {
+                console.error('Error!', error);
+                uploadStatus.innerText = "Error uploading data. Check your internet.";
+                uploadStatus.style.color = "#e74c3c"; // Red
+                finishSessionBtn.disabled = false;
+            });
+        });
+
+    </script>
+</body>
+</html>
