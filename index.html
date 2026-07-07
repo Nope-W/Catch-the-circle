@@ -61,13 +61,11 @@
             z-index: 5;
         }
         
-        /* OVERLAY SCREEN FIXES */
         .overlay-screen { 
             position: fixed; 
             top: 0; left: 0; right: 0; bottom: 0; 
             background-color: rgba(0, 0, 0, 0.95); 
             z-index: 100; 
-            
             overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
@@ -121,6 +119,7 @@
 </head>
 <body>
 
+    <!-- INTRO SCREEN -->
     <div id="intro-screen" class="overlay-screen">
         <h2>Catch the Circle</h2>
         
@@ -163,12 +162,14 @@
         <button id="start-session-btn">Start Experiment</button>
     </div>
 
+    <!-- TRIAL SUMMARY SCREEN -->
     <div id="trial-screen" class="overlay-screen">
         <h2>Target Caught!</h2>
         <p>Reaction Time: <strong id="trial-time">0.00</strong> seconds</p>
         <button id="next-trial-btn">Start Next Trial</button>
     </div>
 
+    <!-- END OF SESSION SCREEN -->
     <div id="end-screen" class="overlay-screen">
         <h2>Experiment Complete</h2>
         <p>10 trials finished successfully.</p>
@@ -360,10 +361,7 @@
             const boardHeight = board.clientHeight;
             
             let targetSize = boardHeight * (60 / 600);
-            
-            if (targetSize < 45) {
-                targetSize = 45;
-            }
+            if (targetSize < 45) targetSize = 45;
 
             target.style.width = `${targetSize}px`;
             target.style.height = `${targetSize}px`; 
@@ -450,10 +448,17 @@
             if (trialCounter >= MAX_TRIALS) {
                 endScreen.style.display = 'flex';
             } else {
-                trialTimeDisplay.innerText = reactionTime;
                 trialScreen.style.display = 'flex'; 
                 
-                // --- NEW DELAY LOGIC TO PREVENT ACCIDENTAL CLICKS ---
+                // --- PREPARE NEXT BACKGROUND IMMEDIATELY ---
+                if (trialCounter < MAX_TRIALS) {
+                    let nextBg = trialPlaylist[trialCounter];
+                    board.style.backgroundImage = `url('${nextBg}')`;
+                    // Pre-calculate color too so it's ready
+                    target.style.backgroundColor = averageColors[nextBg];
+                }
+                
+                // --- 3 SECOND COOLDOWN ---
                 nextTrialBtn.disabled = true;
                 let cooldown = 3;
                 nextTrialBtn.innerText = `Please wait (${cooldown}s)...`;
