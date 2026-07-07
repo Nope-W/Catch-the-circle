@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Catch me if you can!</title>
+    <title>Catch the Circle</title>
     <style>
         body { 
             font-family: sans-serif; 
@@ -24,7 +24,6 @@
             position: relative; 
             background-color: #444; 
             
-            /* These two rules tell the browser to automatically crop and center the image */
             background-size: cover; 
             background-position: center; 
             background-repeat: no-repeat;
@@ -41,41 +40,45 @@
             position: absolute; 
             display: none; 
             border-radius: 50%; 
-            
-            /* The target itself no longer holds the image. It acts as a circular window (clipping mask) */
-            overflow: hidden; 
-            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+            box-shadow: 0 0 6px rgba(0,0,0,0.5);
             z-index: 5;
         }
         
-        #target-bg {
-            position: absolute;
-            /* This nested element will be sized identically to the game board via JavaScript */
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            
-            /* Prevents this inner layer from accidentally blocking clicks */
-            pointer-events: none; 
-        }
-        
-        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
-        .overlay-screen h2 { margin-top: 0; color: #4CAF50; font-size: 1.5rem; }
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; overflow-y: auto; }
+        .overlay-screen h2 { margin-top: 0; color: #4CAF50; font-size: 1.8rem; margin-bottom: 15px; }
         
         #trial-screen, #end-screen { display: none; }
         
         .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; font-size: 1.1rem; margin-bottom: 5px; }
         
-        input[type="text"], select { padding: 10px; font-size: 1rem; margin-bottom: 20px; border-radius: 5px; border: none; text-align: center; width: 80%; max-width: 250px; }
+        .instructions-box {
+            max-width: 600px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: left;
+            line-height: 1.4;
+            font-size: 1.1rem;
+        }
         
-        button { padding: 10px 20px; font-size: 1.1rem; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; margin: 10px; }
+        .instructions-box p { margin: 8px 0; }
+        .warning-text { color: #f39c12; font-weight: bold; text-align: center; margin-top: 10px;}
+        
+        .form-row { display: flex; gap: 15px; justify-content: center; margin-bottom: 15px; width: 100%; max-width: 700px; flex-wrap: wrap;}
+        .control-group { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 180px;}
+        .control-group label { margin-bottom: 5px; font-weight: bold; font-size: 0.9rem;}
+        
+        input[type="text"], select { padding: 10px; font-size: 1rem; border-radius: 5px; border: none; text-align: center; width: 90%; }
+        
+        .checkbox-group { margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 1.1rem; cursor: pointer; }
+        .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        
+        button { padding: 12px 25px; font-size: 1.2rem; font-weight: bold; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; margin: 10px; transition: 0.2s; }
         button:hover { background-color: #45a049; }
         button:disabled { background-color: #7f8c8d; cursor: not-allowed; }
         .danger-btn { background-color: #3498db; }
         .danger-btn:hover { background-color: #2980b9; }
-        
-        .control-group { margin-bottom: 15px; }
-        .control-group label { display: block; margin-bottom: 5px; font-weight: bold; }
         
         #upload-status { margin-top: 15px; font-weight: bold; color: #f1c40f; display: none; }
         
@@ -87,7 +90,7 @@
 </head>
 <body>
 
-    <h1 style="font-size: 1.5rem; margin-top: 5px;">Catch the circle</h1>
+    <h1 style="font-size: 1.5rem; margin-top: 5px;">Catch the Circle</h1>
     <div id="rotate-hint">📱 Please rotate your device to landscape mode</div>
     
     <div class="stats">
@@ -97,25 +100,45 @@
     </div>
 
     <div id="game-board">
-        <div id="target">
-            <div id="target-bg"></div>
-        </div>
+        <div id="target"></div>
         
         <div id="intro-screen" class="overlay-screen">
-            <h2>Session Setup</h2>
+            <h2>Catch the Circle</h2>
             
-            <div class="control-group">
-                <label for="participant-id">Participant ID</label>
-                <input type="text" id="participant-id" placeholder="e.g., P-001" autocomplete="off">
+            <div class="instructions-box">
+                <p><strong>Instructions:</strong> A small circle will bounce around the screen. It is camouflaged to match the background color.</p>
+                <p>Your task is to find the circle and tap/click it as quickly as possible. You will complete 10 trials.</p>
+                <p class="warning-text">Important: This task relies heavily on color perception.</p>
             </div>
 
-            <div class="control-group">
-                <label for="difficulty-select">Target Speed</label>
-                <select id="difficulty-select">
-                    <option value="3">Easy (Slow)</option>
-                    <option value="6" selected>Medium (Standard)</option>
-                    <option value="10">Hard (Fast)</option>
-                </select>
+            <label class="checkbox-group">
+                <input type="checkbox" id="colorblind-check">
+                I have a color vision deficiency (colorblindness)
+            </label>
+            
+            <div class="form-row">
+                <div class="control-group">
+                    <label for="participant-id">Participant ID</label>
+                    <input type="text" id="participant-id" placeholder="e.g., P-001" autocomplete="off">
+                </div>
+
+                <div class="control-group">
+                    <label for="device-select">Device Type</label>
+                    <select id="device-select">
+                        <option value="Laptop/Desktop" selected>Laptop / Desktop</option>
+                        <option value="Tablet">Tablet (iPad, etc.)</option>
+                        <option value="Smartphone">Smartphone</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="difficulty-select">Target Speed</label>
+                    <select id="difficulty-select">
+                        <option value="3">Easy (Slow)</option>
+                        <option value="6" selected>Medium (Standard)</option>
+                        <option value="10">Hard (Fast)</option>
+                    </select>
+                </div>
             </div>
 
             <button id="start-session-btn">Start Experiment</button>
@@ -140,7 +163,6 @@
         
         const board = document.getElementById('game-board');
         const target = document.getElementById('target');
-        const targetBg = document.getElementById('target-bg');
         
         const introScreen = document.getElementById('intro-screen');
         const trialScreen = document.getElementById('trial-screen');
@@ -153,6 +175,8 @@
         
         const participantInput = document.getElementById('participant-id');
         const difficultySelect = document.getElementById('difficulty-select');
+        const deviceSelect = document.getElementById('device-select');
+        const colorblindCheck = document.getElementById('colorblind-check');
         
         const liveTimeDisplay = document.getElementById('live-time-display');
         const missDisplay = document.getElementById('miss-display');
@@ -182,11 +206,15 @@
         
         let participantId = "Unknown";
         let difficultyMode = "Medium";
+        let isColorblind = "No";
+        let deviceType = "Laptop/Desktop";
         let speedMultiplier = 6;
         let trialCounter = 0;
         let currentBg = "";
         let sessionData = []; 
         let trialPlaylist = []; 
+        
+        const averageColors = {};
 
         function shuffleArray(array) {
             const arr = [...array];
@@ -197,12 +225,46 @@
             return arr;
         }
 
+        function getAverageColor(imgElement) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            
+            canvas.width = 50;
+            canvas.height = 50;
+            context.drawImage(imgElement, 0, 0, 50, 50);
+
+            try {
+                const imageData = context.getImageData(0, 0, 50, 50).data;
+                let r = 0, g = 0, b = 0;
+                const pixelCount = imageData.length / 4;
+
+                for (let i = 0; i < imageData.length; i += 4) {
+                    r += imageData[i];
+                    g += imageData[i + 1];
+                    b += imageData[i + 2];
+                }
+
+                r = Math.floor(r / pixelCount);
+                g = Math.floor(g / pixelCount);
+                b = Math.floor(b / pixelCount);
+
+                return `rgb(${r}, ${g}, ${b})`;
+            } catch (error) {
+                console.error("Canvas read failed:", error);
+                return '#888'; 
+            }
+        }
+
         startSessionBtn.addEventListener('click', () => {
             const enteredId = participantInput.value.trim();
             if (enteredId !== "") participantId = enteredId;
             
             speedMultiplier = parseFloat(difficultySelect.value);
             difficultyMode = difficultySelect.options[difficultySelect.selectedIndex].text;
+            
+            // Capture Colorblind and Device Status
+            isColorblind = colorblindCheck.checked ? "Yes" : "No";
+            deviceType = deviceSelect.options[deviceSelect.selectedIndex].value;
             
             const selectedD = shuffleArray(dBackgrounds).slice(0, 5);
             const selectedT = shuffleArray(tBackgrounds).slice(0, 5);
@@ -222,6 +284,7 @@
                 const img = new Image();
                 img.src = filename;
                 img.onload = () => {
+                    averageColors[filename] = getAverageColor(img);
                     loadedCount++;
                     startSessionBtn.innerText = `Loading Images (${loadedCount}/${totalImages})...`;
                     if (loadedCount === totalImages) {
@@ -230,6 +293,7 @@
                     }
                 };
                 img.onerror = () => {
+                    averageColors[filename] = '#888'; 
                     loadedCount++;
                     if (loadedCount === totalImages) {
                         introScreen.style.display = 'none';
@@ -247,24 +311,17 @@
             misses = 0;
             missDisplay.innerText = misses;
 
-            // Update backgrounds
             currentBg = trialPlaylist[trialCounter - 1];
             board.style.backgroundImage = `url('${currentBg}')`;
-            targetBg.style.backgroundImage = `url('${currentBg}')`;
+            target.style.backgroundColor = averageColors[currentBg];
             
             const boardWidth = board.clientWidth;
             const boardHeight = board.clientHeight;
             
-            // 1. Size the inner background exactly to the game board
-            targetBg.style.width = `${boardWidth}px`;
-            targetBg.style.height = `${boardHeight}px`;
-
-            // 2. Size the target circle
             const targetSize = boardHeight * (40 / 600);
             target.style.width = `${targetSize}px`;
             target.style.height = `${targetSize}px`; 
 
-            // 3. Setup positioning
             const maxX = boardWidth - targetSize;
             const maxY = boardHeight - targetSize;
             posX = Math.random() * maxX; 
@@ -306,13 +363,8 @@
             if (posY <= 0) { posY = 0; velocityY *= -1; }
             if (posY >= maxY) { posY = maxY; velocityY *= -1; }
 
-            // Move the target window
             target.style.left = posX + 'px'; 
             target.style.top = posY + 'px';
-            
-            // Shift the inner background opposite to the movement to lock it to the board
-            targetBg.style.left = -posX + 'px';
-            targetBg.style.top = -posY + 'px';
             
             animationFrameId = requestAnimationFrame(animateTarget);
         }
@@ -328,13 +380,16 @@
 
             const reactionTime = ((Date.now() - startTime) / 1000).toFixed(3); 
             
+            // Appended deviceType to the end of the data array
             sessionData.push([
                 participantId,
                 difficultyMode,
                 trialCounter,
                 currentBg,
                 reactionTime,
-                misses
+                misses,
+                isColorblind,
+                deviceType
             ]);
             
             target.style.display = 'none'; 
@@ -362,7 +417,7 @@
             uploadStatus.innerText = "Uploading data to Google Sheets...";
             uploadStatus.style.color = "#f1c40f"; 
             
-            // --- YOUR WEB APP URL GOES HERE ---
+            // Your Web App URL
             const googleScriptURL = "https://script.google.com/macros/s/AKfycbz_kC55rmhm8uCjgJDCyYSSUJcC2iRmuuUQzkdK14PAMLLgeGAG4XHsi2jnehzxiSr5/exec"; 
 
             fetch(googleScriptURL, {
@@ -373,7 +428,7 @@
             .then(response => {
                 uploadStatus.innerText = "Upload Complete! Refresh page for next participant.";
                 uploadStatus.style.color = "#2ecc71"; 
-                alert("Upload Complete!");
+                alert("Upload Complete! Data is safely in your Google Sheet.");
             })
             .catch(error => {
                 console.error('Error!', error);
