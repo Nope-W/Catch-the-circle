@@ -61,11 +61,13 @@
             z-index: 5;
         }
         
+        /* OVERLAY SCREEN FIXES */
         .overlay-screen { 
             position: fixed; 
             top: 0; left: 0; right: 0; bottom: 0; 
             background-color: rgba(0, 0, 0, 0.95); 
             z-index: 100; 
+            
             overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
@@ -76,7 +78,7 @@
         
         .overlay-screen h2 { margin-top: 0; color: #4CAF50; font-size: 1.6rem; margin-bottom: 10px; }
         
-        #trial-screen, #end-screen { display: none; justify-content: center; } 
+        #trial-screen, #end-screen, #ready-screen { display: none; justify-content: center; } 
         
         .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; font-size: 1.1rem; margin-bottom: 5px; }
         
@@ -119,7 +121,6 @@
 </head>
 <body>
 
-    <!-- INTRO SCREEN -->
     <div id="intro-screen" class="overlay-screen">
         <h2>Catch the Circle</h2>
         
@@ -162,14 +163,19 @@
         <button id="start-session-btn">Start Experiment</button>
     </div>
 
-    <!-- TRIAL SUMMARY SCREEN -->
+    <div id="ready-screen" class="overlay-screen">
+        <h2>Setup Complete</h2>
+        <p>Images loaded and fullscreen active.</p>
+        <p style="margin-bottom: 20px;">Ensure the browser's fullscreen notification has disappeared before starting.</p>
+        <button id="begin-first-trial-btn">Start Trial 1</button>
+    </div>
+
     <div id="trial-screen" class="overlay-screen">
         <h2>Target Caught!</h2>
         <p>Reaction Time: <strong id="trial-time">0.00</strong> seconds</p>
         <button id="next-trial-btn">Start Next Trial</button>
     </div>
 
-    <!-- END OF SESSION SCREEN -->
     <div id="end-screen" class="overlay-screen">
         <h2>Experiment Complete</h2>
         <p>10 trials finished successfully.</p>
@@ -200,10 +206,12 @@
         const target = document.getElementById('target');
         
         const introScreen = document.getElementById('intro-screen');
+        const readyScreen = document.getElementById('ready-screen');
         const trialScreen = document.getElementById('trial-screen');
         const endScreen = document.getElementById('end-screen');
         
         const startSessionBtn = document.getElementById('start-session-btn');
+        const beginFirstTrialBtn = document.getElementById('begin-first-trial-btn');
         const nextTrialBtn = document.getElementById('next-trial-btn');
         const finishSessionBtn = document.getElementById('finish-session-btn');
         const uploadStatus = document.getElementById('upload-status');
@@ -293,6 +301,7 @@
         }
 
         startSessionBtn.addEventListener('click', () => {
+            // Trigger fullscreen right away
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().catch(err => {
                     console.log("Fullscreen not supported or denied.");
@@ -330,8 +339,9 @@
                     loadedCount++;
                     startSessionBtn.innerText = `Loading Images (${loadedCount}/${totalImages})...`;
                     if (loadedCount === totalImages) {
+                        // Show the Ready buffer screen instead of starting instantly
                         introScreen.style.display = 'none';
-                        startTrial();
+                        readyScreen.style.display = 'flex';
                     }
                 };
                 img.onerror = () => {
@@ -339,11 +349,17 @@
                     loadedCount++;
                     if (loadedCount === totalImages) {
                         introScreen.style.display = 'none';
-                        startTrial();
+                        readyScreen.style.display = 'flex';
                     }
                 };
             });
         }
+        
+        // New listener to actually start the first trial
+        beginFirstTrialBtn.addEventListener('click', () => {
+            readyScreen.style.display = 'none';
+            startTrial();
+        });
 
         function startTrial() {
             trialCounter++;
@@ -448,17 +464,16 @@
             if (trialCounter >= MAX_TRIALS) {
                 endScreen.style.display = 'flex';
             } else {
+                trialTimeDisplay.innerText = reactionTime;
                 trialScreen.style.display = 'flex'; 
                 
-                // --- PREPARE NEXT BACKGROUND IMMEDIATELY ---
+                // Preload next background
                 if (trialCounter < MAX_TRIALS) {
                     let nextBg = trialPlaylist[trialCounter];
                     board.style.backgroundImage = `url('${nextBg}')`;
-                    // Pre-calculate color too so it's ready
                     target.style.backgroundColor = averageColors[nextBg];
                 }
                 
-                // --- 3 SECOND COOLDOWN ---
                 nextTrialBtn.disabled = true;
                 let cooldown = 3;
                 nextTrialBtn.innerText = `Please wait (${cooldown}s)...`;
@@ -491,6 +506,7 @@
             uploadStatus.innerText = "Uploading data to Google Sheets...";
             uploadStatus.style.color = "#f1c40f"; 
             
+            // --- YOUR WEB APP URL GOES HERE ---
             const googleScriptURL = "https://script.google.com/macros/s/AKfycbz_kC55rmhm8uCjgJDCyYSSUJcC2iRmuuUQzkdK14PAMLLgeGAG4XHsi2jnehzxiSr5/exec"; 
 
             fetch(googleScriptURL, {
@@ -506,7 +522,6 @@
                     document.exitFullscreen();
                 }
                 
-                alert("Upload Complete! Data is safely in your Google Sheet.");
             })
             .catch(error => {
                 console.error('Error!', error);
