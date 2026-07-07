@@ -61,7 +61,7 @@
             z-index: 5;
         }
         
-        /* OVERLAY SCREEN FIXES */
+        /* OVERLAY SCREENS */
         .overlay-screen { 
             position: fixed; 
             top: 0; left: 0; right: 0; bottom: 0; 
@@ -183,7 +183,6 @@
         <div id="upload-status">Uploading data to Google Sheets...</div>
     </div>
 
-
     <div class="header-container">
         <h1>Catch the Circle</h1>
         <div id="rotate-hint">📱 Phone Users: Please request "Desktop Site" and rotate to Landscape</div>
@@ -301,15 +300,23 @@
         }
 
         startSessionBtn.addEventListener('click', () => {
+            const enteredId = participantInput.value.trim();
+            
+            // SECURITY CHECK: Force Participant ID
+            if (enteredId === "") {
+                alert("⚠️ Please enter a Participant ID before starting the experiment.");
+                participantInput.focus(); 
+                return; 
+            }
+            
+            participantId = enteredId;
+
             // Trigger fullscreen right away
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().catch(err => {
                     console.log("Fullscreen not supported or denied.");
                 });
             }
-
-            const enteredId = participantInput.value.trim();
-            if (enteredId !== "") participantId = enteredId;
             
             speedMultiplier = parseFloat(difficultySelect.value);
             difficultyMode = difficultySelect.options[difficultySelect.selectedIndex].text;
@@ -339,7 +346,6 @@
                     loadedCount++;
                     startSessionBtn.innerText = `Loading Images (${loadedCount}/${totalImages})...`;
                     if (loadedCount === totalImages) {
-                        // Show the Ready buffer screen instead of starting instantly
                         introScreen.style.display = 'none';
                         readyScreen.style.display = 'flex';
                     }
@@ -355,7 +361,6 @@
             });
         }
         
-        // New listener to actually start the first trial
         beginFirstTrialBtn.addEventListener('click', () => {
             readyScreen.style.display = 'none';
             startTrial();
@@ -521,6 +526,7 @@
                 if (document.fullscreenElement) {
                     document.exitFullscreen();
                 }
+                
                 
             })
             .catch(error => {
