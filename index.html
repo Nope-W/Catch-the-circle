@@ -363,7 +363,7 @@
             uploadStatus.style.color = "#f1c40f"; 
             
             // --- YOUR WEB APP URL GOES HERE ---
-            const googleScriptURL = "YOUR_WEB_APP_URL_HERE"; 
+            const googleScriptURL = "https://script.google.com/macros/s/AKfycbz_kC55rmhm8uCjgJDCyYSSUJcC2iRmuuUQzkdK14PAMLLgeGAG4XHsi2jnehzxiSr5/exec"; 
 
             fetch(googleScriptURL, {
                 method: 'POST',
@@ -373,7 +373,7 @@
             .then(response => {
                 uploadStatus.innerText = "Upload Complete! Refresh page for next participant.";
                 uploadStatus.style.color = "#2ecc71"; 
-                alert("Upload Complete! Data is safely in your Google Sheet.");
+                alert("Upload Complete!");
             })
             .catch(error => {
                 console.error('Error!', error);
