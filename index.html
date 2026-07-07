@@ -2,25 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Catch the Circle</title>
     <style>
+        /* MOBILE LOCKDOWN CSS */
         body { 
             font-family: sans-serif; 
             text-align: center; 
             background-color: #222; 
             color: #fff; 
             margin: 0; 
-            padding: 10px; 
-            overflow: hidden; 
+            padding: 0; 
+            width: 100vw;
+            height: 100dvh; /* Dynamic height accounts for mobile address bars */
+            overflow: hidden; /* Absolutely no scrolling allowed */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
         }
+        
+        .header-container {
+            width: 100%;
+            padding: 5px 0;
+            flex-shrink: 0; /* Prevents header from shrinking */
+        }
+        
+        h1 { font-size: 1.5rem; margin: 5px 0; }
         
         #game-board { 
             width: 100%; 
             max-width: 800px; 
+            max-height: 75dvh; /* Prevents the board from pushing stats off the screen */
             aspect-ratio: 16 / 9; 
             
-            margin: 10px auto; 
+            margin: 0 auto; 
             position: relative; 
             background-color: #444; 
             
@@ -33,7 +49,7 @@
             overflow: hidden; 
             cursor: crosshair;
             
-            touch-action: none; 
+            touch-action: none; /* Disables pinch-to-zoom and swipe-to-scroll on the board */
         }
         
         #target { 
@@ -44,7 +60,7 @@
             z-index: 5;
         }
         
-        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; overflow-y: auto; }
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; overflow-y: auto; padding-bottom: 20px;}
         .overlay-screen h2 { margin-top: 0; color: #4CAF50; font-size: 1.8rem; margin-bottom: 15px; }
         
         #trial-screen, #end-screen { display: none; }
@@ -82,7 +98,7 @@
         
         #upload-status { margin-top: 15px; font-weight: bold; color: #f1c40f; display: none; }
         
-        #rotate-hint { display: none; color: #e74c3c; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem;}
+        #rotate-hint { display: none; color: #e74c3c; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;}
         @media (orientation: portrait) {
             #rotate-hint { display: block; }
         }
@@ -90,13 +106,15 @@
 </head>
 <body>
 
-    <h1 style="font-size: 1.5rem; margin-top: 5px;">Catch the Circle</h1>
-    <div id="rotate-hint">📱 Please rotate your device to landscape mode</div>
-    
-    <div class="stats">
-        <div>Trial: <strong id="trial-counter-display">0 / 10</strong></div>
-        <div>Time: <strong id="live-time-display">0.00</strong> s</div>
-        <div>Misses: <strong id="miss-display">0</strong></div>
+    <div class="header-container">
+        <h1>Catch the Circle</h1>
+        <div id="rotate-hint">📱 Please rotate your device to landscape mode</div>
+        
+        <div class="stats">
+            <div>Trial: <strong id="trial-counter-display">0 / 10</strong></div>
+            <div>Time: <strong id="live-time-display">0.00</strong> s</div>
+            <div>Misses: <strong id="miss-display">0</strong></div>
+        </div>
     </div>
 
     <div id="game-board">
@@ -201,6 +219,8 @@
         let liveTimerInterval; 
         let animationFrameId;
         
+        let lastFrameTime = 0;
+        
         let posX = 0; let posY = 0; 
         let velocityX = 0; let velocityY = 0;
         
@@ -256,13 +276,19 @@
         }
 
         startSessionBtn.addEventListener('click', () => {
+            // ATTEMPT FULLSCREEN TO PREVENT SCROLLING ON MOBILE
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log("Fullscreen not supported or denied.");
+                });
+            }
+
             const enteredId = participantInput.value.trim();
             if (enteredId !== "") participantId = enteredId;
             
             speedMultiplier = parseFloat(difficultySelect.value);
             difficultyMode = difficultySelect.options[difficultySelect.selectedIndex].text;
             
-            // Capture Colorblind and Device Status
             isColorblind = colorblindCheck.checked ? "Yes" : "No";
             deviceType = deviceSelect.options[deviceSelect.selectedIndex].value;
             
@@ -338,23 +364,31 @@
                 liveTimeDisplay.innerText = ((Date.now() - startTime) / 1000).toFixed(2);
             }, 50);
 
-            animateTarget();
+            lastFrameTime = performance.now();
+            animationFrameId = requestAnimationFrame(animateTarget);
         }
 
         function setInitialVelocity(boardWidth) {
             const scaleFactor = boardWidth / 800; 
-            const actualSpeed = speedMultiplier * scaleFactor;
+            const basePixelsPerSecond = speedMultiplier * 60; 
+            const actualSpeedPPS = basePixelsPerSecond * scaleFactor;
             
             const angle = Math.random() * 2 * Math.PI;
-            velocityX = Math.cos(angle) * actualSpeed;
-            velocityY = Math.sin(angle) * actualSpeed;
+            velocityX = Math.cos(angle) * actualSpeedPPS;
+            velocityY = Math.sin(angle) * actualSpeedPPS;
         }
 
-        function animateTarget() {
+        function animateTarget(currentTime) {
             if (!gameActive) return;
 
-            posX += velocityX; 
-            posY += velocityY;
+            let deltaTime = (currentTime - lastFrameTime) / 1000;
+            lastFrameTime = currentTime;
+            
+            if (deltaTime > 0.1) deltaTime = 0.1; 
+
+            posX += velocityX * deltaTime; 
+            posY += velocityY * deltaTime;
+            
             const maxX = board.clientWidth - target.clientWidth;
             const maxY = board.clientHeight - target.clientHeight;
 
@@ -380,7 +414,6 @@
 
             const reactionTime = ((Date.now() - startTime) / 1000).toFixed(3); 
             
-            // Appended deviceType to the end of the data array
             sessionData.push([
                 participantId,
                 difficultyMode,
@@ -417,7 +450,6 @@
             uploadStatus.innerText = "Uploading data to Google Sheets...";
             uploadStatus.style.color = "#f1c40f"; 
             
-            // Your Web App URL
             const googleScriptURL = "https://script.google.com/macros/s/AKfycbz_kC55rmhm8uCjgJDCyYSSUJcC2iRmuuUQzkdK14PAMLLgeGAG4XHsi2jnehzxiSr5/exec"; 
 
             fetch(googleScriptURL, {
@@ -428,6 +460,12 @@
             .then(response => {
                 uploadStatus.innerText = "Upload Complete! Refresh page for next participant.";
                 uploadStatus.style.color = "#2ecc71"; 
+                
+                // Exit fullscreen if they are done
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                
                 alert("Upload Complete! Data is safely in your Google Sheet.");
             })
             .catch(error => {
